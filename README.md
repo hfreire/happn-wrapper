@@ -30,9 +30,8 @@ const HappnWrapper = require('happn-wrapper')
 
 const happn = new HappnWrapper()
 const facebookAccessToken = 'my-facebook-access-token'
-const facebookUserId = 'my-facebook-id'
 
-happn.authorize(facebookAccessToken, facebookUserId)
+happn.authorize(facebookAccessToken)
   .then(() => happn.getRecommendations())
   .then(({ results }) => console.log(results))
 ```
