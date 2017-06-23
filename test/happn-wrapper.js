@@ -135,8 +135,7 @@ describe('Happn Wrapper', () => {
   describe('when getting recommendations', () => {
     const userId = 'my-user-id'
     const statusCode = 200
-    const data = {}
-    const body = { data: {} }
+    const body = {}
     const response = { statusCode, body }
 
     beforeEach(() => {
@@ -178,8 +177,8 @@ describe('Happn Wrapper', () => {
 
     it('should resolve with response body as data', () => {
       return subject.getRecommendations()
-        .then((_data) => {
-          _data.should.be.eql(data)
+        .then((data) => {
+          data.should.be.eql(body)
         })
     })
   })
@@ -209,8 +208,7 @@ describe('Happn Wrapper', () => {
   describe('when getting account', () => {
     const userId = 'my-user-id'
     const statusCode = 200
-    const data = {}
-    const body = { data }
+    const body = {}
     const response = { statusCode, body }
 
     beforeEach(() => {
@@ -237,8 +235,8 @@ describe('Happn Wrapper', () => {
 
     it('should resolve with response body as data', () => {
       return subject.getAccount()
-        .then((_data) => {
-          _data.should.be.eql(data)
+        .then((data) => {
+          data.should.be.equal(body)
         })
     })
   })
@@ -246,8 +244,7 @@ describe('Happn Wrapper', () => {
   describe('when getting user', () => {
     const userId = 'my-user-id'
     const statusCode = 200
-    const data = {}
-    const body = { data }
+    const body = {}
     const response = { statusCode, body }
 
     beforeEach(() => {
@@ -273,8 +270,8 @@ describe('Happn Wrapper', () => {
 
     it('should resolve with response body as data', () => {
       return subject.getUser(userId)
-        .then((_data) => {
-          _data.should.be.eql(data)
+        .then((data) => {
+          data.should.be.equal(body)
         })
     })
   })
@@ -299,8 +296,7 @@ describe('Happn Wrapper', () => {
   describe('when getting update', () => {
     const userId = 'my-user-id'
     const statusCode = 200
-    const data = {}
-    const body = { data }
+    const body = {}
     const response = { statusCode, body }
 
     beforeEach(() => {
@@ -342,8 +338,8 @@ describe('Happn Wrapper', () => {
 
     it('should resolve with response body as data', () => {
       return subject.getUpdates()
-        .then((_data) => {
-          _data.should.be.eql(data)
+        .then((data) => {
+          data.should.be.eql(body)
         })
     })
   })
@@ -397,8 +393,8 @@ describe('Happn Wrapper', () => {
 
     it('should resolve with response body as data', () => {
       return subject.like(userIdToLike)
-        .then((_data) => {
-          _data.should.be.equal(body)
+        .then((data) => {
+          data.should.be.equal(body)
         })
     })
   })

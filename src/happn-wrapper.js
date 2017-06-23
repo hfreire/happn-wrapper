@@ -132,7 +132,6 @@ class HappnWrapper {
 
     return this._getRequestCircuitBreaker.exec(options)
       .then((response) => handleResponse(response))
-      .then(({ data }) => data)
   }
 
   getAccount () {
@@ -154,7 +153,6 @@ class HappnWrapper {
 
     return this._getRequestCircuitBreaker.exec(options)
       .then((response) => handleResponse(response))
-      .then(({ data }) => data)
   }
 
   getUpdates (limit = 10, offset = 0) {
@@ -174,7 +172,6 @@ class HappnWrapper {
 
     return this._getRequestCircuitBreaker.exec(options)
       .then((response) => handleResponse(response))
-      .then(({ data }) => data)
   }
 
   sendMessage () {
