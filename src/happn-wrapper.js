@@ -148,6 +148,9 @@ class HappnWrapper {
       headers: {
         'Authorization': `OAuth="${this._accessToken}"`
       },
+      qs: {
+        fields: 'id,about,job,is_accepted,birth_date,workplace,my_relation,distance,gender,my_conversation,is_charmed,nb_photos,first_name,last_name,age,profiles.mode(1).width(360).height(640).fields(width,height,mode,url)'
+      },
       json: true
     }
 
