@@ -20,6 +20,7 @@ const handleResponse = ({ statusCode, statusMessage, body }) => {
   if (statusCode >= 300) {
     switch (statusCode) {
       case 401:
+      case 410:
         throw new HappnNotAuthorizedError()
       default:
         throw new Error(`${statusCode} ${statusMessage}`)
