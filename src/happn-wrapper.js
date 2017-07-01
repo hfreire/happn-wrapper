@@ -160,22 +160,48 @@ class HappnWrapper {
   }
 
   getUpdates (limit = 10, offset = 0) {
-    const options = {
-      url: `${BASE_URL}/api/users/${this._userId}/notifications`,
-      headers: {
-        'Authorization': `OAuth="${this._accessToken}"`
-      },
-      qs: {
-        types: 473,
-        limit,
-        offset,
-        fields: 'id,modification_date,notification_type,nb_times,notifier.fields(id,about,job,is_accepted,birth_date,workplace,my_relation,distance,gender,my_conversation,is_charmed,nb_photos,first_name,last_name,age,profiles.mode(1).width(360).height(640).fields(width,height,mode,url))'
-      },
-      json: true
+    const getMatches = () => {
+      const options = {
+        url: `${BASE_URL}/api/users/${this._userId}/notifications`,
+        headers: {
+          'Authorization': `OAuth="${this._accessToken}"`
+        },
+        qs: {
+          types: 563,
+          limit,
+          offset,
+          fields: 'id,creation_date,modification_date,notification_type,nb_times,notifier.fields(id,about,job,is_accepted,birth_date,workplace,my_relation,distance,gender,my_conversation,is_charmed,nb_photos,first_name,last_name,age,profiles.mode(1).width(360).height(640).fields(width,height,mode,url))'
+        },
+        json: true
+      }
+
+      return this._getRequestCircuitBreaker.exec(options)
+        .then((response) => handleResponse(response))
+    }
+    const getConversations = () => {
+      /* const options = {
+       url: `${BASE_URL}/api/users/${this._userId}/conversations`,
+       headers: {
+       'Authorization': `OAuth="${this._accessToken}"`
+       },
+       qs: {
+       limit,
+       offset,
+       fields: 'messages.fields(creation_date,message)'
+       },
+       json: true
+       }
+
+       return this._getRequestCircuitBreaker.exec(options)
+       .then((response) => handleResponse(response)) */
+
+      return Promise.resolve()
     }
 
-    return this._getRequestCircuitBreaker.exec(options)
-      .then((response) => handleResponse(response))
+    return Promise.props({
+      matches: getMatches(),
+      conversations: getConversations()
+    })
   }
 
   sendMessage () {
