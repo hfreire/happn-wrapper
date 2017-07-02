@@ -293,7 +293,7 @@ describe('Happn Wrapper', () => {
     })
   })
 
-  describe('when getting update', () => {
+  describe('when getting updates', () => {
     const userId = 'my-user-id'
     const statusCode = 200
     const body = {}
@@ -329,17 +329,17 @@ describe('Happn Wrapper', () => {
           td.verify(request.get(captor.capture()), { ignoreExtraArgs: true, times: 1 })
 
           const options = captor.value
-          options.should.have.nested.property('qs.types', 473)
+          options.should.have.nested.property('qs.types', 563)
           options.should.have.nested.property('qs.limit')
           options.should.have.nested.property('qs.offset')
-          options.should.have.nested.property('qs.fields', 'id,modification_date,notification_type,nb_times,notifier.fields(id,about,job,is_accepted,birth_date,workplace,my_relation,distance,gender,my_conversation,is_charmed,nb_photos,first_name,last_name,age,profiles.mode(1).width(360).height(640).fields(width,height,mode,url))')
+          options.should.have.nested.property('qs.fields', 'id,creation_date,modification_date,notification_type,nb_times,notifier.fields(id,about,job,is_accepted,birth_date,workplace,my_relation,distance,gender,my_conversation,is_charmed,nb_photos,first_name,last_name,age,profiles.mode(1).width(360).height(640).fields(width,height,mode,url))')
         })
     })
 
     it('should resolve with response body as data', () => {
       return subject.getUpdates()
         .then((data) => {
-          data.should.be.eql(body)
+          data.should.have.property('matches', body)
         })
     })
   })
