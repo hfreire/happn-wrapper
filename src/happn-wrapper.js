@@ -42,7 +42,7 @@ const handleResponse = ({ statusCode, statusMessage, body }) => {
 const defaultOptions = {
   request: {
     headers: {
-      'User-Agent': 'Happn/19.1.0 AndroidSDK/19'
+      'User-Agent': 'happn/20.15.0 android/23'
     }
   },
   retry: { max_tries: 2, interval: 1000, timeout: 12000, throw_original: true },
@@ -59,6 +59,7 @@ class HappnWrapper {
 
     this._getRequestCircuitBreaker = this._breaker.slaveCircuit((...params) => retry(() => this._request.getAsync(...params), this._options.retry))
     this._postRequestCircuitBreaker = this._breaker.slaveCircuit((...params) => retry(() => this._request.postAsync(...params), this._options.retry))
+    this._putRequestCircuitBreaker = this._breaker.slaveCircuit((...params) => retry(() => this._request.putAsync(...params), this._options.retry))
   }
 
   set accessToken (accessToken) {
@@ -116,17 +117,16 @@ class HappnWrapper {
       })
   }
 
-  getRecommendations (limit = 10, offset = 0) {
+  getRecommendations (limit = 16, offset = 0) {
     const options = {
-      url: `${BASE_URL}/api/users/${this._userId}/notifications`,
+      url: `${BASE_URL}/api/users/${this._userId}/crossings`,
       headers: {
         'Authorization': `OAuth="${this._accessToken}"`
       },
       qs: {
-        types: 468,
         limit,
         offset,
-        fields: 'id,modification_date,notification_type,nb_times,notifier.fields(id,about,job,is_accepted,birth_date,workplace,my_relation,distance,gender,my_conversation,is_charmed,nb_photos,first_name,last_name,age,profiles.mode(1).width(360).height(640).fields(width,height,mode,url))'
+        fields: 'id,modification_date,notification_type,nb_times,notifier.fields(id,about,job,is_accepted,birth_date,workplace,my_relation,distance,gender,my_conversation,is_charmed,nb_photos,first_name,age,profiles.mode(1).width(360).height(640).fields(width,height,mode,url))'
       },
       json: true
     }
@@ -159,18 +159,19 @@ class HappnWrapper {
       .then((response) => handleResponse(response))
   }
 
-  getUpdates (limit = 10, offset = 0) {
-    const getMatches = () => {
+  getUpdates (lastActivityDate) {
+    if (!(lastActivityDate instanceof Date) && lastActivityDate) {
+      return Promise.reject(new Error('invalid arguments'))
+    }
+
+    const getMessages = (conversationId) => {
       const options = {
-        url: `${BASE_URL}/api/users/${this._userId}/notifications`,
+        url: `${BASE_URL}/api/conversations/${conversationId}/messages`,
         headers: {
           'Authorization': `OAuth="${this._accessToken}"`
         },
         qs: {
-          types: 563,
-          limit,
-          offset,
-          fields: 'id,creation_date,modification_date,notification_type,nb_times,notifier.fields(id,about,job,is_accepted,birth_date,workplace,my_relation,distance,gender,my_conversation,is_charmed,nb_photos,first_name,last_name,age,profiles.mode(1).width(360).height(640).fields(width,height,mode,url))'
+          fields: 'id,creation_date,message,is_read,sender.fields(id)'
         },
         json: true
       }
@@ -178,34 +179,78 @@ class HappnWrapper {
       return this._getRequestCircuitBreaker.exec(options)
         .then((response) => handleResponse(response))
     }
-    const getConversations = () => {
-      /* const options = {
-       url: `${BASE_URL}/api/users/${this._userId}/conversations`,
-       headers: {
-       'Authorization': `OAuth="${this._accessToken}"`
-       },
-       qs: {
-       limit,
-       offset,
-       fields: 'messages.fields(creation_date,message)'
-       },
-       json: true
-       }
+    const getConversations = (limit = 10, offset = 0) => {
+      const options = {
+        url: `${BASE_URL}/api/users/${this._userId}/conversations`,
+        headers: {
+          'Authorization': `OAuth="${this._accessToken}"`
+        },
+        qs: {
+          limit,
+          offset,
+          fields: 'id,creation_date,modification_date,is_read'
+        },
+        json: true
+      }
 
-       return this._getRequestCircuitBreaker.exec(options)
-       .then((response) => handleResponse(response)) */
-
-      return Promise.resolve()
+      return this._getRequestCircuitBreaker.exec(options)
+        .then((response) => handleResponse(response))
     }
 
-    return Promise.props({
-      matches: getMatches(),
-      conversations: getConversations()
-    })
+    const _getConversations = (limit = 10, offset = 0, conversations = []) => {
+      return getConversations(limit, offset)
+        .then(({ data }) => {
+          if (_.isEmpty(data)) {
+            return conversations
+          }
+
+          const _conversations = _.filter(data, (conversation) => {
+            const modificationDate = new Date(conversation[ 'modification_date' ])
+
+            return !lastActivityDate || lastActivityDate.getTime() < modificationDate.getTime()
+          })
+
+          conversations = conversations.concat(_conversations)
+
+          if (_conversations.length === limit) {
+            return _getConversations(limit, offset + limit, conversations)
+          }
+
+          return conversations
+        })
+    }
+
+    return _getConversations()
+      .mapSeries((conversation) => {
+        return getMessages(conversation.id)
+          .then(({ data }) => {
+            conversation.messages = data
+
+            return conversation
+          })
+      })
+      .then((conversations) => { return { conversations } })
   }
 
-  sendMessage () {
-    return Promise.reject(new Error('not implemented'))
+  sendMessage (conversationId, message) {
+    if (!conversationId || !message) {
+      return Promise.reject(new Error('invalid arguments'))
+    }
+
+    const options = {
+      url: `${BASE_URL}/api/users/${this._userId}/conversations/${conversationId}/messages`,
+      headers: {
+        'Authorization': `OAuth="${this._accessToken}"`
+      },
+      body: {
+        fields: 'message,creation_date,sender.fields(id)',
+        message
+      },
+      json: true
+    }
+
+    return this._postRequestCircuitBreaker.exec(options)
+      .then((response) => handleResponse(response))
   }
 
   like (userId) {
@@ -218,9 +263,7 @@ class HappnWrapper {
       headers: {
         'Authorization': `OAuth="${this._accessToken}"`
       },
-      body: {
-        id: userId
-      },
+      body: {},
       json: true
     }
 
@@ -238,9 +281,7 @@ class HappnWrapper {
       headers: {
         'Authorization': `OAuth="${this._accessToken}"`
       },
-      body: {
-        id: userId
-      },
+      body: {},
       json: true
     }
 

@@ -32,7 +32,7 @@ describe('Happn Wrapper', () => {
       td.verify(request.defaults(captor.capture()))
 
       const options = captor.value
-      options.should.have.nested.property('headers.User-Agent', 'Happn/19.1.0 AndroidSDK/19')
+      options.should.have.nested.property('headers.User-Agent', 'happn/20.15.0 android/23')
     })
   })
 
@@ -156,7 +156,7 @@ describe('Happn Wrapper', () => {
           td.verify(request.get(captor.capture()), { ignoreExtraArgs: true, times: 1 })
 
           const options = captor.value
-          options.should.have.property('url', 'https://api.happn.fr/api/users/my-user-id/notifications')
+          options.should.have.property('url', 'https://api.happn.fr/api/users/my-user-id/crossings')
         })
     })
 
@@ -168,10 +168,9 @@ describe('Happn Wrapper', () => {
           td.verify(request.get(captor.capture()), { ignoreExtraArgs: true, times: 1 })
 
           const options = captor.value
-          options.should.have.nested.property('qs.types', 468)
           options.should.have.nested.property('qs.limit')
           options.should.have.nested.property('qs.offset')
-          options.should.have.nested.property('qs.fields', 'id,modification_date,notification_type,nb_times,notifier.fields(id,about,job,is_accepted,birth_date,workplace,my_relation,distance,gender,my_conversation,is_charmed,nb_photos,first_name,last_name,age,profiles.mode(1).width(360).height(640).fields(width,height,mode,url))')
+          options.should.have.nested.property('qs.fields', 'id,modification_date,notification_type,nb_times,notifier.fields(id,about,job,is_accepted,birth_date,workplace,my_relation,distance,gender,my_conversation,is_charmed,nb_photos,first_name,age,profiles.mode(1).width(360).height(640).fields(width,height,mode,url))')
         })
     })
 
@@ -293,15 +292,18 @@ describe('Happn Wrapper', () => {
     })
   })
 
-  describe('when getting updates', () => {
+  describe('when getting updates without a last activity date', () => {
     const userId = 'my-user-id'
     const statusCode = 200
-    const body = {}
-    const response = { statusCode, body }
+    const conversationId = 'my-conversation-id'
+    const body = { data: [ { id: conversationId } ] }
+    const conversationsResponse = { statusCode, body }
+    const messagesResponse = { statusCode, body: {} }
 
     beforeEach(() => {
       td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
-      td.when(request.get(td.matchers.anything()), { ignoreExtraArgs: true }).thenCallback(null, response)
+      td.when(request.get(td.matchers.contains({ url: 'https://api.happn.fr/api/users/my-user-id/conversations' })), { ignoreExtraArgs: true }).thenCallback(null, conversationsResponse)
+      td.when(request.get(td.matchers.contains({ url: 'https://api.happn.fr/api/conversations/my-conversation-id/messages' })), { ignoreExtraArgs: true }).thenCallback(null, messagesResponse)
       td.replace('request', request)
 
       const HappnWrapper = require('../src/happn-wrapper')
@@ -309,69 +311,191 @@ describe('Happn Wrapper', () => {
       subject.userId = userId
     })
 
-    it('should do a get request to https://api.happn.fr/api/users/my-user-id/notifications', () => {
+    it('should do a get request to https://api.happn.fr/api/users/my-user-id/conversations', () => {
       return subject.getUpdates()
         .then(() => {
-          const captor = td.matchers.captor()
-
-          td.verify(request.get(captor.capture()), { ignoreExtraArgs: true, times: 1 })
-
-          const options = captor.value
-          options.should.have.property('url', 'https://api.happn.fr/api/users/my-user-id/notifications')
+          td.verify(request.get(td.matchers.contains({
+            url: 'https://api.happn.fr/api/users/my-user-id/conversations',
+            qs: {
+              limit: 10,
+              offset: 0,
+              fields: 'id,creation_date,modification_date,is_read'
+            }
+          })), { ignoreExtraArgs: true, times: 1 })
         })
     })
 
-    it('should do a get request with query string', () => {
-      return subject.getUpdates()
-        .then(() => {
-          const captor = td.matchers.captor()
+    describe('when sending message', () => {
+      const userId = 'my-user-id'
+      const conversationId = 'my-conversation-id'
+      const message = 'my-message'
+      const statusCode = 200
+      const body = {}
+      const response = { statusCode, body }
 
-          td.verify(request.get(captor.capture()), { ignoreExtraArgs: true, times: 1 })
+      beforeEach(() => {
+        td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
+        td.when(request.post(td.matchers.anything()), { ignoreExtraArgs: true }).thenCallback(null, response)
+        td.replace('request', request)
 
-          const options = captor.value
-          options.should.have.nested.property('qs.types', 563)
-          options.should.have.nested.property('qs.limit')
-          options.should.have.nested.property('qs.offset')
-          options.should.have.nested.property('qs.fields', 'id,creation_date,modification_date,notification_type,nb_times,notifier.fields(id,about,job,is_accepted,birth_date,workplace,my_relation,distance,gender,my_conversation,is_charmed,nb_photos,first_name,last_name,age,profiles.mode(1).width(360).height(640).fields(width,height,mode,url))')
-        })
+        const HappnWrapper = require('../src/happn-wrapper')
+        subject = new HappnWrapper()
+        subject.userId = userId
+      })
+
+      it('should do a post request to https://api.happn.fr/api/users/my-user-id/conversations/my-conversation-id/messages', () => {
+        return subject.sendMessage(conversationId, message)
+          .then(() => {
+            const captor = td.matchers.captor()
+
+            td.verify(request.post(captor.capture()), { ignoreExtraArgs: true, times: 1 })
+
+            const options = captor.value
+            options.should.have.property('url', `https://api.happn.fr/api/users/my-user-id/conversations/${conversationId}/messages`)
+          })
+      })
+
+      it('should do a get request with body', () => {
+        return subject.sendMessage(conversationId, message)
+          .then(() => {
+            const captor = td.matchers.captor()
+
+            td.verify(request.post(captor.capture()), { ignoreExtraArgs: true, times: 1 })
+
+            const options = captor.value
+            options.should.have.nested.nested.property('body.fields', 'message,creation_date,sender.fields(id)')
+            options.should.have.nested.nested.property('body.message', message)
+          })
+      })
     })
 
-    it('should resolve with response body as data', () => {
-      return subject.getUpdates()
-        .then((data) => {
-          data.should.have.property('matches', body)
-        })
+    describe('when liking', () => {
+      const userId = 'my-user-id'
+      const userIdToLike = 'my-user-id-to-like'
+      const statusCode = 200
+      const body = { likes_remaining: 100 }
+      const response = { statusCode, body }
+
+      beforeEach(() => {
+        td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
+        td.when(request.post(td.matchers.anything()), { ignoreExtraArgs: true }).thenCallback(null, response)
+        td.replace('request', request)
+
+        const HappnWrapper = require('../src/happn-wrapper')
+        subject = new HappnWrapper()
+        subject.userId = userId
+      })
+
+      it('should do a post request to https://api.happn.fr/api/users/my-user-id/accepted/my-user-id-to-like', () => {
+        return subject.like(userIdToLike)
+          .then(() => {
+            const captor = td.matchers.captor()
+
+            td.verify(request.post(captor.capture()), { ignoreExtraArgs: true, times: 1 })
+
+            const options = captor.value
+            options.should.have.property('url', 'https://api.happn.fr/api/users/my-user-id/accepted/my-user-id-to-like')
+          })
+      })
+
+      it('should resolve with response body as data', () => {
+        return subject.like(userIdToLike)
+          .then((data) => {
+            data.should.be.equal(body)
+          })
+      })
+    })
+
+    describe('when liking with invalid user id', () => {
+      const userId = undefined
+
+      beforeEach(() => {
+        td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
+        td.replace('request', request)
+
+        const HappnWrapper = require('../src/happn-wrapper')
+        subject = new HappnWrapper()
+      })
+
+      it('should reject with invalid arguments error', () => {
+        return subject.like(userId)
+          .catch((error) => {
+            error.should.be.instanceOf(Error)
+            error.message.should.be.equal('invalid arguments')
+          })
+      })
+    })
+
+    describe('when passing', () => {
+      const userId = 'my-user-id'
+      const userIdToPass = 'my-user-id-to-pass'
+      const statusCode = 200
+      const body = { likes_remaining: 100 }
+      const response = { statusCode, body }
+
+      beforeEach(() => {
+        td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
+        td.when(request.post(td.matchers.anything()), { ignoreExtraArgs: true }).thenCallback(null, response)
+        td.replace('request', request)
+
+        const HappnWrapper = require('../src/happn-wrapper')
+        subject = new HappnWrapper()
+        subject.userId = userId
+      })
+
+      it('should do a post request to https://api.happn.fr/api/users/my-user-id/rejected/my-user-id-to-pass', () => {
+        return subject.pass(userIdToPass)
+          .then(() => {
+            const captor = td.matchers.captor()
+
+            td.verify(request.post(captor.capture()), { ignoreExtraArgs: true, times: 1 })
+
+            const options = captor.value
+            options.should.have.property('url', 'https://api.happn.fr/api/users/my-user-id/rejected/my-user-id-to-pass')
+          })
+      })
+
+      it('should resolve with response body as data', () => {
+        return subject.pass(userIdToPass)
+          .then((_data) => {
+            _data.should.be.equal(body)
+          })
+      })
+    })
+
+    describe('when passing with invalid user id', () => {
+      const userId = undefined
+
+      beforeEach(() => {
+        td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
+        td.replace('request', request)
+
+        const HappnWrapper = require('../src/happn-wrapper')
+        subject = new HappnWrapper()
+      })
+
+      it('should reject with invalid arguments error', () => {
+        return subject.pass(userId)
+          .catch((error) => {
+            error.should.be.instanceOf(Error)
+            error.message.should.be.equal('invalid arguments')
+          })
+      })
     })
   })
 
-  describe('when sending message', () => {
-    beforeEach(() => {
-      td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
-      td.replace('request', request)
-
-      const HappnWrapper = require('../src/happn-wrapper')
-      subject = new HappnWrapper()
-    })
-
-    it('should reject with not implemented error', () => {
-      return subject.sendMessage()
-        .catch((error) => {
-          error.should.be.instanceOf(Error)
-          error.message.should.be.equal('not implemented')
-        })
-    })
-  })
-
-  describe('when liking', () => {
+  describe('when getting updates with a last activity date', () => {
     const userId = 'my-user-id'
-    const userIdToLike = 'my-user-id-to-like'
     const statusCode = 200
-    const body = { likes_remaining: 100 }
-    const response = { statusCode, body }
+    const conversationId = 'my-conversation-id'
+    const body = { data: [ { id: conversationId, modification_date: '2017-05-02T00:00:00Z' } ] }
+    const conversationsResponse = { statusCode, body }
+    const messagesResponse = { statusCode, body: {} }
 
     beforeEach(() => {
       td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
-      td.when(request.post(td.matchers.anything()), { ignoreExtraArgs: true }).thenCallback(null, response)
+      td.when(request.get(td.matchers.contains({ url: 'https://api.happn.fr/api/users/my-user-id/conversations' })), { ignoreExtraArgs: true }).thenCallback(null, conversationsResponse)
+      td.when(request.get(td.matchers.contains({ url: 'https://api.happn.fr/api/conversations/my-conversation-id/messages' })), { ignoreExtraArgs: true }).thenCallback(null, messagesResponse)
       td.replace('request', request)
 
       const HappnWrapper = require('../src/happn-wrapper')
@@ -379,99 +503,27 @@ describe('Happn Wrapper', () => {
       subject.userId = userId
     })
 
-    it('should do a post request to https://api.happn.fr/api/users/my-user-id/accepted/my-user-id-to-like', () => {
-      return subject.like(userIdToLike)
+    it('should do a get request to https://api.happn.fr/api/users/my-user-id/conversations', () => {
+      return subject.getUpdates(new Date())
         .then(() => {
-          const captor = td.matchers.captor()
-
-          td.verify(request.post(captor.capture()), { ignoreExtraArgs: true, times: 1 })
-
-          const options = captor.value
-          options.should.have.property('url', 'https://api.happn.fr/api/users/my-user-id/accepted/my-user-id-to-like')
+          td.verify(request.get(td.matchers.contains({
+            url: 'https://api.happn.fr/api/users/my-user-id/conversations',
+            qs: {
+              limit: 10,
+              offset: 0,
+              fields: 'id,creation_date,modification_date,is_read'
+            }
+          })), { ignoreExtraArgs: true, times: 1 })
         })
     })
 
-    it('should resolve with response body as data', () => {
-      return subject.like(userIdToLike)
-        .then((data) => {
-          data.should.be.equal(body)
-        })
-    })
-  })
-
-  describe('when liking with invalid user id', () => {
-    const userId = undefined
-
-    beforeEach(() => {
-      td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
-      td.replace('request', request)
-
-      const HappnWrapper = require('../src/happn-wrapper')
-      subject = new HappnWrapper()
-    })
-
-    it('should reject with invalid arguments error', () => {
-      return subject.like(userId)
-        .catch((error) => {
-          error.should.be.instanceOf(Error)
-          error.message.should.be.equal('invalid arguments')
-        })
-    })
-  })
-
-  describe('when passing', () => {
-    const userId = 'my-user-id'
-    const userIdToPass = 'my-user-id-to-pass'
-    const statusCode = 200
-    const body = { likes_remaining: 100 }
-    const response = { statusCode, body }
-
-    beforeEach(() => {
-      td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
-      td.when(request.post(td.matchers.anything()), { ignoreExtraArgs: true }).thenCallback(null, response)
-      td.replace('request', request)
-
-      const HappnWrapper = require('../src/happn-wrapper')
-      subject = new HappnWrapper()
-      subject.userId = userId
-    })
-
-    it('should do a post request to https://api.happn.fr/api/users/my-user-id/rejected/my-user-id-to-pass', () => {
-      return subject.pass(userIdToPass)
+    it('should not do a get request to https://api.happn.fr/api/conversations/my-conversation-id/messages', () => {
+      return subject.getUpdates(new Date())
         .then(() => {
-          const captor = td.matchers.captor()
-
-          td.verify(request.post(captor.capture()), { ignoreExtraArgs: true, times: 1 })
-
-          const options = captor.value
-          options.should.have.property('url', 'https://api.happn.fr/api/users/my-user-id/rejected/my-user-id-to-pass')
-        })
-    })
-
-    it('should resolve with response body as data', () => {
-      return subject.pass(userIdToPass)
-        .then((_data) => {
-          _data.should.be.equal(body)
-        })
-    })
-  })
-
-  describe('when passing with invalid user id', () => {
-    const userId = undefined
-
-    beforeEach(() => {
-      td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
-      td.replace('request', request)
-
-      const HappnWrapper = require('../src/happn-wrapper')
-      subject = new HappnWrapper()
-    })
-
-    it('should reject with invalid arguments error', () => {
-      return subject.pass(userId)
-        .catch((error) => {
-          error.should.be.instanceOf(Error)
-          error.message.should.be.equal('invalid arguments')
+          td.verify(request.get(td.matchers.contains({ url: 'https://api.happn.fr/api/conversations/my-conversation-id/messages' })), {
+            ignoreExtraArgs: true,
+            times: 0
+          })
         })
     })
   })
