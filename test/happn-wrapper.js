@@ -319,7 +319,7 @@ describe('Happn Wrapper', () => {
             qs: {
               limit: 10,
               offset: 0,
-              fields: 'id,creation_date,modification_date,is_read'
+              fields: 'id,participants.fields(user.fields(id,first_name)),creation_date,modification_date,is_read'
             }
           })), { ignoreExtraArgs: true, times: 1 })
         })
@@ -511,7 +511,7 @@ describe('Happn Wrapper', () => {
             qs: {
               limit: 10,
               offset: 0,
-              fields: 'id,creation_date,modification_date,is_read'
+              fields: 'id,participants.fields(user.fields(id,first_name)),creation_date,modification_date,is_read'
             }
           })), { ignoreExtraArgs: true, times: 1 })
         })
