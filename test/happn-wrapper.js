@@ -5,6 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+/* eslint-disable promise/no-callback-in-promise */
+
 const { HappnNotAuthorizedError } = require('../src/errors')
 
 describe('Happn Wrapper', () => {
@@ -137,6 +139,7 @@ describe('Happn Wrapper', () => {
     const statusCode = 200
     const body = {}
     const response = { statusCode, body }
+    const accessToken = 'my-access-token'
 
     beforeEach(() => {
       td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
@@ -145,6 +148,7 @@ describe('Happn Wrapper', () => {
 
       const HappnWrapper = require('../src/happn-wrapper')
       subject = new HappnWrapper()
+      subject.accessToken = accessToken
       subject.userId = userId
     })
 
@@ -209,6 +213,7 @@ describe('Happn Wrapper', () => {
     const statusCode = 200
     const body = {}
     const response = { statusCode, body }
+    const accessToken = 'my-access-token'
 
     beforeEach(() => {
       td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
@@ -217,6 +222,7 @@ describe('Happn Wrapper', () => {
 
       const HappnWrapper = require('../src/happn-wrapper')
       subject = new HappnWrapper()
+      subject.accessToken = accessToken
       subject.userId = userId
     })
 
@@ -240,11 +246,28 @@ describe('Happn Wrapper', () => {
     })
   })
 
+  describe('when getting account and not authorized', () => {
+    beforeEach(() => {
+      const HappnWrapper = require('../src/happn-wrapper')
+      subject = new HappnWrapper()
+    })
+
+    it('should reject with tinder not authorized error', (done) => {
+      subject.getAccount()
+        .catch((error) => {
+          error.should.be.instanceOf(HappnNotAuthorizedError)
+
+          done()
+        })
+    })
+  })
+
   describe('when getting user', () => {
     const userId = 'my-user-id'
     const statusCode = 200
     const body = {}
     const response = { statusCode, body }
+    const accessToken = 'my-access-token'
 
     beforeEach(() => {
       td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
@@ -253,6 +276,7 @@ describe('Happn Wrapper', () => {
 
       const HappnWrapper = require('../src/happn-wrapper')
       subject = new HappnWrapper()
+      subject.accessToken = accessToken
     })
 
     it('should do a get request to https://api.happn.fr/api/users/my-user-id', () => {
@@ -275,12 +299,32 @@ describe('Happn Wrapper', () => {
     })
   })
 
-  describe('when getting user with invalid id', () => {
-    const userId = undefined
+  describe('when getting user and not authorized', () => {
+    const userId = 'my-user-id'
 
     beforeEach(() => {
       const HappnWrapper = require('../src/happn-wrapper')
       subject = new HappnWrapper()
+    })
+
+    it('should reject with tinder not authorized error', (done) => {
+      subject.getUser(userId)
+        .catch((error) => {
+          error.should.be.instanceOf(HappnNotAuthorizedError)
+
+          done()
+        })
+    })
+  })
+
+  describe('when getting user with invalid id', () => {
+    const userId = undefined
+    const accessToken = 'my-access-token'
+
+    beforeEach(() => {
+      const HappnWrapper = require('../src/happn-wrapper')
+      subject = new HappnWrapper()
+      subject.accessToken = accessToken
     })
 
     it('should reject with invalid arguments error', () => {
@@ -299,6 +343,7 @@ describe('Happn Wrapper', () => {
     const body = { data: [ { id: conversationId } ] }
     const conversationsResponse = { statusCode, body }
     const messagesResponse = { statusCode, body: {} }
+    const accessToken = 'my-access-token'
 
     beforeEach(() => {
       td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
@@ -308,6 +353,7 @@ describe('Happn Wrapper', () => {
 
       const HappnWrapper = require('../src/happn-wrapper')
       subject = new HappnWrapper()
+      subject.accessToken = accessToken
       subject.userId = userId
     })
 
@@ -324,164 +370,6 @@ describe('Happn Wrapper', () => {
           })), { ignoreExtraArgs: true, times: 1 })
         })
     })
-
-    describe('when sending message', () => {
-      const userId = 'my-user-id'
-      const conversationId = 'my-conversation-id'
-      const message = 'my-message'
-      const statusCode = 200
-      const body = {}
-      const response = { statusCode, body }
-
-      beforeEach(() => {
-        td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
-        td.when(request.post(td.matchers.anything()), { ignoreExtraArgs: true }).thenCallback(null, response)
-        td.replace('request', request)
-
-        const HappnWrapper = require('../src/happn-wrapper')
-        subject = new HappnWrapper()
-        subject.userId = userId
-      })
-
-      it('should do a post request to https://api.happn.fr/api/users/my-user-id/conversations/my-conversation-id/messages', () => {
-        return subject.sendMessage(conversationId, message)
-          .then(() => {
-            const captor = td.matchers.captor()
-
-            td.verify(request.post(captor.capture()), { ignoreExtraArgs: true, times: 1 })
-
-            const options = captor.value
-            options.should.have.property('url', `https://api.happn.fr/api/users/my-user-id/conversations/${conversationId}/messages`)
-          })
-      })
-
-      it('should do a get request with body', () => {
-        return subject.sendMessage(conversationId, message)
-          .then(() => {
-            const captor = td.matchers.captor()
-
-            td.verify(request.post(captor.capture()), { ignoreExtraArgs: true, times: 1 })
-
-            const options = captor.value
-            options.should.have.nested.nested.property('body.fields', 'message,creation_date,sender.fields(id)')
-            options.should.have.nested.nested.property('body.message', message)
-          })
-      })
-    })
-
-    describe('when liking', () => {
-      const userId = 'my-user-id'
-      const userIdToLike = 'my-user-id-to-like'
-      const statusCode = 200
-      const body = { likes_remaining: 100 }
-      const response = { statusCode, body }
-
-      beforeEach(() => {
-        td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
-        td.when(request.post(td.matchers.anything()), { ignoreExtraArgs: true }).thenCallback(null, response)
-        td.replace('request', request)
-
-        const HappnWrapper = require('../src/happn-wrapper')
-        subject = new HappnWrapper()
-        subject.userId = userId
-      })
-
-      it('should do a post request to https://api.happn.fr/api/users/my-user-id/accepted/my-user-id-to-like', () => {
-        return subject.like(userIdToLike)
-          .then(() => {
-            const captor = td.matchers.captor()
-
-            td.verify(request.post(captor.capture()), { ignoreExtraArgs: true, times: 1 })
-
-            const options = captor.value
-            options.should.have.property('url', 'https://api.happn.fr/api/users/my-user-id/accepted/my-user-id-to-like')
-          })
-      })
-
-      it('should resolve with response body as data', () => {
-        return subject.like(userIdToLike)
-          .then((data) => {
-            data.should.be.equal(body)
-          })
-      })
-    })
-
-    describe('when liking with invalid user id', () => {
-      const userId = undefined
-
-      beforeEach(() => {
-        td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
-        td.replace('request', request)
-
-        const HappnWrapper = require('../src/happn-wrapper')
-        subject = new HappnWrapper()
-      })
-
-      it('should reject with invalid arguments error', () => {
-        return subject.like(userId)
-          .catch((error) => {
-            error.should.be.instanceOf(Error)
-            error.message.should.be.equal('invalid arguments')
-          })
-      })
-    })
-
-    describe('when passing', () => {
-      const userId = 'my-user-id'
-      const userIdToPass = 'my-user-id-to-pass'
-      const statusCode = 200
-      const body = { likes_remaining: 100 }
-      const response = { statusCode, body }
-
-      beforeEach(() => {
-        td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
-        td.when(request.post(td.matchers.anything()), { ignoreExtraArgs: true }).thenCallback(null, response)
-        td.replace('request', request)
-
-        const HappnWrapper = require('../src/happn-wrapper')
-        subject = new HappnWrapper()
-        subject.userId = userId
-      })
-
-      it('should do a post request to https://api.happn.fr/api/users/my-user-id/rejected/my-user-id-to-pass', () => {
-        return subject.pass(userIdToPass)
-          .then(() => {
-            const captor = td.matchers.captor()
-
-            td.verify(request.post(captor.capture()), { ignoreExtraArgs: true, times: 1 })
-
-            const options = captor.value
-            options.should.have.property('url', 'https://api.happn.fr/api/users/my-user-id/rejected/my-user-id-to-pass')
-          })
-      })
-
-      it('should resolve with response body as data', () => {
-        return subject.pass(userIdToPass)
-          .then((_data) => {
-            _data.should.be.equal(body)
-          })
-      })
-    })
-
-    describe('when passing with invalid user id', () => {
-      const userId = undefined
-
-      beforeEach(() => {
-        td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
-        td.replace('request', request)
-
-        const HappnWrapper = require('../src/happn-wrapper')
-        subject = new HappnWrapper()
-      })
-
-      it('should reject with invalid arguments error', () => {
-        return subject.pass(userId)
-          .catch((error) => {
-            error.should.be.instanceOf(Error)
-            error.message.should.be.equal('invalid arguments')
-          })
-      })
-    })
   })
 
   describe('when getting updates with a last activity date', () => {
@@ -491,6 +379,7 @@ describe('Happn Wrapper', () => {
     const body = { data: [ { id: conversationId, modification_date: '2017-05-02T00:00:00Z' } ] }
     const conversationsResponse = { statusCode, body }
     const messagesResponse = { statusCode, body: {} }
+    const accessToken = 'my-access-token'
 
     beforeEach(() => {
       td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
@@ -500,6 +389,7 @@ describe('Happn Wrapper', () => {
 
       const HappnWrapper = require('../src/happn-wrapper')
       subject = new HappnWrapper()
+      subject.accessToken = accessToken
       subject.userId = userId
     })
 
@@ -524,6 +414,244 @@ describe('Happn Wrapper', () => {
             ignoreExtraArgs: true,
             times: 0
           })
+        })
+    })
+  })
+
+  describe('when getting updates and not authorized', () => {
+    beforeEach(() => {
+      const HappnWrapper = require('../src/happn-wrapper')
+      subject = new HappnWrapper()
+    })
+
+    it('should reject with tinder not authorized error', (done) => {
+      subject.getUpdates()
+        .catch((error) => {
+          error.should.be.instanceOf(HappnNotAuthorizedError)
+
+          done()
+        })
+    })
+  })
+
+  describe('when sending message', () => {
+    const userId = 'my-user-id'
+    const conversationId = 'my-conversation-id'
+    const message = 'my-message'
+    const statusCode = 200
+    const body = {}
+    const response = { statusCode, body }
+    const accessToken = 'my-access-token'
+
+    beforeEach(() => {
+      td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
+      td.when(request.post(td.matchers.anything()), { ignoreExtraArgs: true }).thenCallback(null, response)
+      td.replace('request', request)
+
+      const HappnWrapper = require('../src/happn-wrapper')
+      subject = new HappnWrapper()
+      subject.accessToken = accessToken
+      subject.userId = userId
+    })
+
+    it('should do a post request to https://api.happn.fr/api/users/my-user-id/conversations/my-conversation-id/messages', () => {
+      return subject.sendMessage(conversationId, message)
+        .then(() => {
+          const captor = td.matchers.captor()
+
+          td.verify(request.post(captor.capture()), { ignoreExtraArgs: true, times: 1 })
+
+          const options = captor.value
+          options.should.have.property('url', `https://api.happn.fr/api/users/my-user-id/conversations/${conversationId}/messages`)
+        })
+    })
+
+    it('should do a get request with body', () => {
+      return subject.sendMessage(conversationId, message)
+        .then(() => {
+          const captor = td.matchers.captor()
+
+          td.verify(request.post(captor.capture()), { ignoreExtraArgs: true, times: 1 })
+
+          const options = captor.value
+          options.should.have.nested.nested.property('body.fields', 'message,creation_date,sender.fields(id)')
+          options.should.have.nested.nested.property('body.message', message)
+        })
+    })
+  })
+
+  describe('when sending message and not authorized', () => {
+    const matchId = 'my-match-id'
+    const message = 'my-message'
+
+    beforeEach(() => {
+      const HappnWrapper = require('../src/happn-wrapper')
+      subject = new HappnWrapper()
+    })
+
+    it('should reject with tinder not authorized error', (done) => {
+      subject.sendMessage(matchId, message)
+        .catch((error) => {
+          error.should.be.instanceOf(HappnNotAuthorizedError)
+
+          done()
+        })
+    })
+  })
+
+  describe('when liking', () => {
+    const userId = 'my-user-id'
+    const userIdToLike = 'my-user-id-to-like'
+    const statusCode = 200
+    const body = { likes_remaining: 100 }
+    const response = { statusCode, body }
+    const accessToken = 'my-access-token'
+
+    beforeEach(() => {
+      td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
+      td.when(request.post(td.matchers.anything()), { ignoreExtraArgs: true }).thenCallback(null, response)
+      td.replace('request', request)
+
+      const HappnWrapper = require('../src/happn-wrapper')
+      subject = new HappnWrapper()
+      subject.accessToken = accessToken
+      subject.userId = userId
+    })
+
+    it('should do a post request to https://api.happn.fr/api/users/my-user-id/accepted/my-user-id-to-like', () => {
+      return subject.like(userIdToLike)
+        .then(() => {
+          const captor = td.matchers.captor()
+
+          td.verify(request.post(captor.capture()), { ignoreExtraArgs: true, times: 1 })
+
+          const options = captor.value
+          options.should.have.property('url', 'https://api.happn.fr/api/users/my-user-id/accepted/my-user-id-to-like')
+        })
+    })
+
+    it('should resolve with response body as data', () => {
+      return subject.like(userIdToLike)
+        .then((data) => {
+          data.should.be.equal(body)
+        })
+    })
+  })
+
+  describe('when liking with invalid user id', () => {
+    const userId = undefined
+
+    beforeEach(() => {
+      td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
+      td.replace('request', request)
+
+      const HappnWrapper = require('../src/happn-wrapper')
+      subject = new HappnWrapper()
+    })
+
+    it('should reject with invalid arguments error', () => {
+      return subject.like(userId)
+        .catch((error) => {
+          error.should.be.instanceOf(Error)
+          error.message.should.be.equal('invalid arguments')
+        })
+    })
+  })
+
+  describe('when liking and not authorized', () => {
+    const userId = 'my-user-id'
+    const photoId = 'my-photo-id'
+    const contentHash = 'my-content-hash'
+    const sNumber = 'my-s-number'
+
+    beforeEach(() => {
+      const HappnWrapper = require('../src/happn-wrapper')
+      subject = new HappnWrapper()
+    })
+
+    it('should reject with tinder not authorized error', (done) => {
+      subject.like(userId, photoId, contentHash, sNumber)
+        .catch((error) => {
+          error.should.be.instanceOf(HappnNotAuthorizedError)
+
+          done()
+        })
+    })
+  })
+
+  describe('when passing', () => {
+    const userId = 'my-user-id'
+    const userIdToPass = 'my-user-id-to-pass'
+    const statusCode = 200
+    const body = { likes_remaining: 100 }
+    const response = { statusCode, body }
+    const accessToken = 'my-access-token'
+
+    beforeEach(() => {
+      td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
+      td.when(request.post(td.matchers.anything()), { ignoreExtraArgs: true }).thenCallback(null, response)
+      td.replace('request', request)
+
+      const HappnWrapper = require('../src/happn-wrapper')
+      subject = new HappnWrapper()
+      subject.accessToken = accessToken
+      subject.userId = userId
+    })
+
+    it('should do a post request to https://api.happn.fr/api/users/my-user-id/rejected/my-user-id-to-pass', () => {
+      return subject.pass(userIdToPass)
+        .then(() => {
+          const captor = td.matchers.captor()
+
+          td.verify(request.post(captor.capture()), { ignoreExtraArgs: true, times: 1 })
+
+          const options = captor.value
+          options.should.have.property('url', 'https://api.happn.fr/api/users/my-user-id/rejected/my-user-id-to-pass')
+        })
+    })
+
+    it('should resolve with response body as data', () => {
+      return subject.pass(userIdToPass)
+        .then((_data) => {
+          _data.should.be.equal(body)
+        })
+    })
+  })
+
+  describe('when passing with invalid user id', () => {
+    const userId = undefined
+
+    beforeEach(() => {
+      td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
+      td.replace('request', request)
+
+      const HappnWrapper = require('../src/happn-wrapper')
+      subject = new HappnWrapper()
+    })
+
+    it('should reject with invalid arguments error', () => {
+      return subject.pass(userId)
+        .catch((error) => {
+          error.should.be.instanceOf(Error)
+          error.message.should.be.equal('invalid arguments')
+        })
+    })
+  })
+
+  describe('when passing and not authorized', () => {
+    const userId = 'my-user-id'
+
+    beforeEach(() => {
+      const HappnWrapper = require('../src/happn-wrapper')
+      subject = new HappnWrapper()
+    })
+
+    it('should reject with tinder not authorized error', (done) => {
+      subject.pass(userId)
+        .catch((error) => {
+          error.should.be.instanceOf(HappnNotAuthorizedError)
+
+          done()
         })
     })
   })

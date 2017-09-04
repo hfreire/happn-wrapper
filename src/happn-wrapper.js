@@ -45,8 +45,8 @@ const defaultOptions = {
       'User-Agent': 'happn/20.15.0 android/23'
     }
   },
-  retry: { max_tries: 2, interval: 1000, timeout: 12000, throw_original: true },
-  breaker: { timeout: 16000, threshold: 80, circuitDuration: 3 * 60 * 60 * 1000 }
+  retry: { max_tries: 2, interval: 1000, timeout: 16000, throw_original: true },
+  breaker: { timeout: 12000, threshold: 80, circuitDuration: 3 * 60 * 60 * 1000 }
 }
 
 class HappnWrapper {
@@ -57,9 +57,37 @@ class HappnWrapper {
 
     this._breaker = new Brakes(this._options.breaker)
 
-    this._getRequestCircuitBreaker = this._breaker.slaveCircuit((...params) => retry(() => this._request.getAsync(...params), this._options.retry))
-    this._postRequestCircuitBreaker = this._breaker.slaveCircuit((...params) => retry(() => this._request.postAsync(...params), this._options.retry))
-    this._putRequestCircuitBreaker = this._breaker.slaveCircuit((...params) => retry(() => this._request.putAsync(...params), this._options.retry))
+    this._getRequestCircuitBreaker = this._breaker.slaveCircuit((...params) => this._request.getAsync(...params))
+    this._postRequestCircuitBreaker = this._breaker.slaveCircuit((...params) => this._request.postAsync(...params))
+
+    this._getRequest = (...params) => {
+      return retry(() => {
+        return this._getRequestCircuitBreaker.exec(...params)
+          .then((response) => {
+            const { statusCode, statusMessage } = response
+
+            if (statusCode >= 500) {
+              throw new Error(`${statusCode} ${statusMessage}`)
+            }
+
+            return response
+          })
+      }, this._options.retry)
+    }
+    this._postRequest = (...params) => {
+      return retry(() => {
+        return this._postRequestCircuitBreaker.exec(...params)
+          .then((response) => {
+            const { statusCode, statusMessage } = response
+
+            if (statusCode >= 500) {
+              throw new Error(`${statusCode} ${statusMessage}`)
+            }
+
+            return response
+          })
+      }, this._options.retry)
+    }
   }
 
   set accessToken (accessToken) {
@@ -106,7 +134,7 @@ class HappnWrapper {
       }
     }
 
-    return this._postRequestCircuitBreaker.exec(options)
+    return this._postRequest(options)
       .then((response) => handleResponse(response))
       .then((data) => {
         this._accessToken = data.access_token
@@ -118,175 +146,222 @@ class HappnWrapper {
   }
 
   getRecommendations (limit = 16, offset = 0) {
-    const options = {
-      url: `${BASE_URL}/api/users/${this._userId}/crossings`,
-      headers: {
-        'Authorization': `OAuth="${this._accessToken}"`
-      },
-      qs: {
-        limit,
-        offset,
-        fields: 'id,modification_date,notification_type,nb_times,notifier.fields(id,about,job,is_accepted,birth_date,workplace,my_relation,distance,gender,my_conversation,is_charmed,nb_photos,first_name,age,profiles.mode(1).width(360).height(640).fields(width,height,mode,url))'
-      },
-      json: true
-    }
+    return Promise.try(() => {
+      if (!this._accessToken) {
+        throw new HappnNotAuthorizedError()
+      }
+    })
+      .then(() => {
+        const options = {
+          url: `${BASE_URL}/api/users/${this._userId}/crossings`,
+          headers: {
+            'Authorization': `OAuth="${this._accessToken}"`
+          },
+          qs: {
+            limit,
+            offset,
+            fields: 'id,modification_date,notification_type,nb_times,notifier.fields(id,about,job,is_accepted,birth_date,workplace,my_relation,distance,gender,my_conversation,is_charmed,nb_photos,first_name,age,profiles.mode(1).width(360).height(640).fields(width,height,mode,url))'
+          },
+          json: true
+        }
 
-    return this._getRequestCircuitBreaker.exec(options)
-      .then((response) => handleResponse(response))
+        return this._getRequest(options)
+          .then((response) => handleResponse(response))
+      })
   }
 
   getAccount () {
-    return this.getUser(this._userId)
+    return Promise.try(() => {
+      if (!this._accessToken) {
+        throw new HappnNotAuthorizedError()
+      }
+    })
+      .then(() => this.getUser(this._userId))
   }
 
   getUser (userId) {
-    if (!userId) {
-      return Promise.reject(new Error('invalid arguments'))
-    }
+    return Promise.try(() => {
+      if (!userId) {
+        throw new Error('invalid arguments')
+      }
 
-    const options = {
-      url: `${BASE_URL}/api/users/${userId}`,
-      headers: {
-        'Authorization': `OAuth="${this._accessToken}"`
-      },
-      qs: {
-        fields: 'id,modification_date,about,job,is_accepted,birth_date,workplace,my_relation,distance,gender,my_conversation,is_charmed,nb_photos,first_name,last_name,age,profiles.mode(1).width(360).height(640).fields(width,height,mode,url)'
-      },
-      json: true
-    }
+      if (!this._accessToken) {
+        throw new HappnNotAuthorizedError()
+      }
+    })
+      .then(() => {
+        const options = {
+          url: `${BASE_URL}/api/users/${userId}`,
+          headers: {
+            'Authorization': `OAuth="${this._accessToken}"`
+          },
+          qs: {
+            fields: 'id,modification_date,about,job,is_accepted,birth_date,workplace,my_relation,distance,gender,my_conversation,is_charmed,nb_photos,first_name,last_name,age,profiles.mode(1).width(360).height(640).fields(width,height,mode,url)'
+          },
+          json: true
+        }
 
-    return this._getRequestCircuitBreaker.exec(options)
-      .then((response) => handleResponse(response))
+        return this._getRequest(options)
+          .then((response) => handleResponse(response))
+      })
   }
 
   getUpdates (lastActivityDate) {
-    if (!(lastActivityDate instanceof Date) && lastActivityDate) {
-      return Promise.reject(new Error('invalid arguments'))
-    }
-
-    const getMessages = (conversationId) => {
-      const options = {
-        url: `${BASE_URL}/api/conversations/${conversationId}/messages`,
-        headers: {
-          'Authorization': `OAuth="${this._accessToken}"`
-        },
-        qs: {
-          fields: 'id,creation_date,message,is_read,sender.fields(id)'
-        },
-        json: true
+    return Promise.try(() => {
+      if (!(lastActivityDate instanceof Date) && lastActivityDate) {
+        throw new Error('invalid arguments')
       }
 
-      return this._getRequestCircuitBreaker.exec(options)
-        .then((response) => handleResponse(response))
-    }
-    const getConversations = (limit = 10, offset = 0) => {
-      const options = {
-        url: `${BASE_URL}/api/users/${this._userId}/conversations`,
-        headers: {
-          'Authorization': `OAuth="${this._accessToken}"`
-        },
-        qs: {
-          limit,
-          offset,
-          fields: 'id,participants.fields(user.fields(id,first_name)),creation_date,modification_date,is_read'
-        },
-        json: true
+      if (!this._accessToken) {
+        throw new HappnNotAuthorizedError()
       }
-
-      return this._getRequestCircuitBreaker.exec(options)
-        .then((response) => handleResponse(response))
-    }
-
-    const _getConversations = (limit = 10, offset = 0, conversations = []) => {
-      return getConversations(limit, offset)
-        .then(({ data }) => {
-          if (_.isEmpty(data)) {
-            return conversations
+    })
+      .then(() => {
+        const getMessages = (conversationId) => {
+          const options = {
+            url: `${BASE_URL}/api/conversations/${conversationId}/messages`,
+            headers: {
+              'Authorization': `OAuth="${this._accessToken}"`
+            },
+            qs: {
+              fields: 'id,creation_date,message,is_read,sender.fields(id)'
+            },
+            json: true
           }
 
-          const _conversations = _.filter(data, (conversation) => {
-            const modificationDate = new Date(conversation[ 'modification_date' ])
-
-            return !lastActivityDate || lastActivityDate.getTime() < modificationDate.getTime()
-          })
-
-          conversations = conversations.concat(_conversations)
-
-          if (_conversations.length === limit) {
-            return _getConversations(limit, offset + limit, conversations)
+          return this._getRequest(options)
+            .then((response) => handleResponse(response))
+        }
+        const getConversations = (limit = 10, offset = 0) => {
+          const options = {
+            url: `${BASE_URL}/api/users/${this._userId}/conversations`,
+            headers: {
+              'Authorization': `OAuth="${this._accessToken}"`
+            },
+            qs: {
+              limit,
+              offset,
+              fields: 'id,participants.fields(user.fields(id,first_name)),creation_date,modification_date,is_read'
+            },
+            json: true
           }
 
-          return conversations
-        })
-    }
+          return this._getRequest(options)
+            .then((response) => handleResponse(response))
+        }
 
-    return _getConversations()
-      .mapSeries((conversation) => {
-        return getMessages(conversation.id)
-          .then(({ data }) => {
-            conversation.messages = data
+        const _getConversations = (limit = 10, offset = 0, conversations = []) => {
+          return getConversations(limit, offset)
+            .then(({ data }) => {
+              if (_.isEmpty(data)) {
+                return conversations
+              }
 
-            return conversation
+              const _conversations = _.filter(data, (conversation) => {
+                const modificationDate = new Date(conversation[ 'modification_date' ])
+
+                return !lastActivityDate || lastActivityDate.getTime() < modificationDate.getTime()
+              })
+
+              conversations = conversations.concat(_conversations)
+
+              if (_conversations.length === limit) {
+                return _getConversations(limit, offset + limit, conversations)
+              }
+
+              return conversations
+            })
+        }
+
+        return _getConversations()
+          .mapSeries((conversation) => {
+            return getMessages(conversation.id)
+              .then(({ data }) => {
+                conversation.messages = data
+
+                return conversation
+              })
           })
+          .then((conversations) => { return { conversations } })
       })
-      .then((conversations) => { return { conversations } })
   }
 
   sendMessage (conversationId, message) {
-    if (!conversationId || !message) {
-      return Promise.reject(new Error('invalid arguments'))
-    }
+    return Promise.try(() => {
+      if (!conversationId || !message) {
+        throw new Error('invalid arguments')
+      }
 
-    const options = {
-      url: `${BASE_URL}/api/users/${this._userId}/conversations/${conversationId}/messages`,
-      headers: {
-        'Authorization': `OAuth="${this._accessToken}"`
-      },
-      body: {
-        fields: 'message,creation_date,sender.fields(id)',
-        message
-      },
-      json: true
-    }
+      if (!this._accessToken) {
+        throw new HappnNotAuthorizedError()
+      }
+    })
+      .then(() => {
+        const options = {
+          url: `${BASE_URL}/api/users/${this._userId}/conversations/${conversationId}/messages`,
+          headers: {
+            'Authorization': `OAuth="${this._accessToken}"`
+          },
+          body: {
+            fields: 'message,creation_date,sender.fields(id)',
+            message
+          },
+          json: true
+        }
 
-    return this._postRequestCircuitBreaker.exec(options)
-      .then((response) => handleResponse(response))
+        return this._postRequest(options)
+          .then((response) => handleResponse(response))
+      })
   }
 
   like (userId) {
-    if (!userId) {
-      return Promise.reject(new Error('invalid arguments'))
-    }
+    return Promise.try(() => {
+      if (!userId) {
+        throw new Error('invalid arguments')
+      }
 
-    const options = {
-      url: `${BASE_URL}/api/users/${this._userId}/accepted/${userId}`,
-      headers: {
-        'Authorization': `OAuth="${this._accessToken}"`
-      },
-      body: {},
-      json: true
-    }
+      if (!this._accessToken) {
+        throw new HappnNotAuthorizedError()
+      }
+    })
+      .then(() => {
+        const options = {
+          url: `${BASE_URL}/api/users/${this._userId}/accepted/${userId}`,
+          headers: {
+            'Authorization': `OAuth="${this._accessToken}"`
+          },
+          body: {},
+          json: true
+        }
 
-    return this._postRequestCircuitBreaker.exec(options)
-      .then((response) => handleResponse(response))
+        return this._postRequest(options)
+          .then((response) => handleResponse(response))
+      })
   }
 
   pass (userId) {
-    if (!userId) {
-      return Promise.reject(new Error('invalid arguments'))
-    }
+    return Promise.try(() => {
+      if (!userId) {
+        throw new Error('invalid arguments')
+      }
 
-    const options = {
-      url: `${BASE_URL}/api/users/${this._userId}/rejected/${userId}`,
-      headers: {
-        'Authorization': `OAuth="${this._accessToken}"`
-      },
-      body: {},
-      json: true
-    }
+      if (!this._accessToken) {
+        throw new HappnNotAuthorizedError()
+      }
+    })
+      .then(() => {
+        const options = {
+          url: `${BASE_URL}/api/users/${this._userId}/rejected/${userId}`,
+          headers: {
+            'Authorization': `OAuth="${this._accessToken}"`
+          },
+          body: {},
+          json: true
+        }
 
-    return this._postRequestCircuitBreaker.exec(options)
-      .then((response) => handleResponse(response))
+        return this._postRequest(options)
+          .then((response) => handleResponse(response))
+      })
   }
 }
 
