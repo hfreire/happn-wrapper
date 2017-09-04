@@ -16,7 +16,7 @@ const { HappnNotAuthorizedError } = require('./errors')
 
 const request = require('request')
 
-const handleResponse = ({ statusCode, statusMessage, body }) => {
+const handleResponse = ({ body }) => {
   let _body = body
   if (_.isString(_body)) {
     _body = JSON.parse(_body)
