@@ -17,16 +17,6 @@ const { HappnNotAuthorizedError } = require('./errors')
 const request = require('request')
 
 const handleResponse = ({ statusCode, statusMessage, body }) => {
-  if (statusCode >= 300) {
-    switch (statusCode) {
-      case 401:
-      case 410:
-        throw new HappnNotAuthorizedError()
-      default:
-        throw new Error(`${statusCode} ${statusMessage}`)
-    }
-  }
-
   let _body = body
   if (_.isString(_body)) {
     _body = JSON.parse(_body)
@@ -45,7 +35,13 @@ const defaultOptions = {
       'User-Agent': 'happn/20.15.0 android/23'
     }
   },
-  retry: { max_tries: 2, interval: 1000, timeout: 16000, throw_original: true },
+  retry: {
+    max_tries: 2,
+    interval: 1000,
+    timeout: 16000,
+    throw_original: true,
+    predicate: (error) => !(error instanceof HappnNotAuthorizedError)
+  },
   breaker: { timeout: 12000, threshold: 80, circuitDuration: 3 * 60 * 60 * 1000 }
 }
 
@@ -57,36 +53,44 @@ class HappnWrapper {
 
     this._breaker = new Brakes(this._options.breaker)
 
-    this._getRequestCircuitBreaker = this._breaker.slaveCircuit((...params) => this._request.getAsync(...params))
-    this._postRequestCircuitBreaker = this._breaker.slaveCircuit((...params) => this._request.postAsync(...params))
+    this._getRequestCircuitBreaker = this._breaker.slaveCircuit((...params) => retry(() => this._getRequest(...params), this._options.retry))
+    this._postRequestCircuitBreaker = this._breaker.slaveCircuit((...params) => retry(() => this._postRequest(...params), this._options.retry))
 
     this._getRequest = (...params) => {
-      return retry(() => {
-        return this._getRequestCircuitBreaker.exec(...params)
-          .then((response) => {
-            const { statusCode, statusMessage } = response
+      return this._request.getAsync(...params)
+        .then((response) => {
+          const { statusCode, statusMessage } = response
 
-            if (statusCode >= 500) {
-              throw new Error(`${statusCode} ${statusMessage}`)
+          if (statusCode >= 300) {
+            switch (statusCode) {
+              case 401:
+              case 410:
+                throw new HappnNotAuthorizedError()
+              default:
+                throw new Error(`${statusCode} ${statusMessage}`)
             }
+          }
 
-            return response
-          })
-      }, this._options.retry)
+          return response
+        })
     }
     this._postRequest = (...params) => {
-      return retry(() => {
-        return this._postRequestCircuitBreaker.exec(...params)
-          .then((response) => {
-            const { statusCode, statusMessage } = response
+      return this._request.postAsync(...params)
+        .then((response) => {
+          const { statusCode, statusMessage } = response
 
-            if (statusCode >= 500) {
-              throw new Error(`${statusCode} ${statusMessage}`)
+          if (statusCode >= 300) {
+            switch (statusCode) {
+              case 401:
+              case 410:
+                throw new HappnNotAuthorizedError()
+              default:
+                throw new Error(`${statusCode} ${statusMessage}`)
             }
+          }
 
-            return response
-          })
-      }, this._options.retry)
+          return response
+        })
     }
   }
 
@@ -134,7 +138,7 @@ class HappnWrapper {
       }
     }
 
-    return this._postRequest(options)
+    return this._postRequestCircuitBreaker.exec(options)
       .then((response) => handleResponse(response))
       .then((data) => {
         this._accessToken = data.access_token
@@ -165,7 +169,7 @@ class HappnWrapper {
           json: true
         }
 
-        return this._getRequest(options)
+        return this._getRequestCircuitBreaker.exec(options)
           .then((response) => handleResponse(response))
       })
   }
@@ -201,7 +205,7 @@ class HappnWrapper {
           json: true
         }
 
-        return this._getRequest(options)
+        return this._getRequestCircuitBreaker.exec(options)
           .then((response) => handleResponse(response))
       })
   }
@@ -229,7 +233,7 @@ class HappnWrapper {
             json: true
           }
 
-          return this._getRequest(options)
+          return this._getRequestCircuitBreaker.exec(options)
             .then((response) => handleResponse(response))
         }
         const getConversations = (limit = 10, offset = 0) => {
@@ -246,7 +250,7 @@ class HappnWrapper {
             json: true
           }
 
-          return this._getRequest(options)
+          return this._getRequestCircuitBreaker.exec(options)
             .then((response) => handleResponse(response))
         }
 
@@ -309,7 +313,7 @@ class HappnWrapper {
           json: true
         }
 
-        return this._postRequest(options)
+        return this._postRequestCircuitBreaker.exec(options)
           .then((response) => handleResponse(response))
       })
   }
@@ -334,7 +338,7 @@ class HappnWrapper {
           json: true
         }
 
-        return this._postRequest(options)
+        return this._postRequestCircuitBreaker.exec(options)
           .then((response) => handleResponse(response))
       })
   }
@@ -359,7 +363,7 @@ class HappnWrapper {
           json: true
         }
 
-        return this._postRequest(options)
+        return this._postRequestCircuitBreaker.exec(options)
           .then((response) => handleResponse(response))
       })
   }
