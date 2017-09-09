@@ -118,6 +118,10 @@ class HappnWrapper {
     return this._userId
   }
 
+  get circuitBreaker () {
+    return this._breaker
+  }
+
   authorize (facebookAccessToken) {
     if (!facebookAccessToken) {
       return Promise.reject(new Error('invalid arguments'))
