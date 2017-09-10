@@ -46,7 +46,7 @@ describe('Happn Wrapper', () => {
 
     it('should create a request with defaults function', () => {
       subject._request.should.have.property('defaults')
-      subject._request.get.should.be.instanceOf(Function)
+      subject._request.defaults.should.be.instanceOf(Function)
     })
 
     it('should create a request with get function', () => {
@@ -56,7 +56,7 @@ describe('Happn Wrapper', () => {
 
     it('should create a request with post function', () => {
       subject._request.should.have.property('post')
-      subject._request.get.should.be.instanceOf(Function)
+      subject._request.post.should.be.instanceOf(Function)
     })
   })
 
