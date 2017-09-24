@@ -168,7 +168,7 @@ class HappnWrapper {
           qs: {
             limit,
             offset,
-            fields: 'id,modification_date,notification_type,nb_times,notifier.fields(id,about,job,is_accepted,birth_date,workplace,my_relation,distance,gender,my_conversation,is_charmed,nb_photos,first_name,age,profiles.mode(1).width(360).height(640).fields(width,height,mode,url))'
+            fields: 'id,modification_date,notification_type,nb_times,notifier.fields(id,type,job,is_accepted,workplace,my_relation,distance,gender,is_charmed,nb_photos,first_name,age,already_charmed,has_charmed_me,availability,is_invited,last_invite_received,profiles.mode(1).width(360).height(640).fields(id,mode,url,width,height))'
           },
           json: true
         }
@@ -204,7 +204,7 @@ class HappnWrapper {
             'Authorization': `OAuth="${this._accessToken}"`
           },
           qs: {
-            fields: 'id,modification_date,about,job,is_accepted,birth_date,workplace,my_relation,distance,gender,my_conversation,is_charmed,nb_photos,first_name,last_name,age,profiles.mode(1).width(360).height(640).fields(width,height,mode,url)'
+            fields: 'id,type,about,first_name,age,job,workplace,school,modification_date,profiles.mode(1).width(640).height(864).fields(id,mode,url,width,height),last_meet_position.fields(lat,lon,creation_date),my_relation,is_charmed,distance,gender,spotify_tracks,social_synchronization.fields(instagram),clickable_profile_link,clickable_message_link,availability,is_invited,last_invite_received,has_charmed_me'
           },
           json: true
         }
