@@ -174,7 +174,7 @@ describe('Happn Wrapper', () => {
           const options = captor.value
           options.should.have.nested.property('qs.limit')
           options.should.have.nested.property('qs.offset')
-          options.should.have.nested.property('qs.fields', 'id,modification_date,notification_type,nb_times,notifier.fields(id,about,job,is_accepted,birth_date,workplace,my_relation,distance,gender,my_conversation,is_charmed,nb_photos,first_name,age,profiles.mode(1).width(360).height(640).fields(width,height,mode,url))')
+          options.should.have.nested.property('qs.fields', 'id,modification_date,notification_type,nb_times,notifier.fields(id,type,job,is_accepted,workplace,my_relation,distance,gender,is_charmed,nb_photos,first_name,age,already_charmed,has_charmed_me,availability,is_invited,last_invite_received,profiles.mode(1).width(360).height(640).fields(id,mode,url,width,height))')
         })
     })
 
