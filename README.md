@@ -9,7 +9,7 @@
 [![Version](https://img.shields.io/npm/v/happn-wrapper.svg)](https://www.npmjs.com/package/happn-wrapper)
 [![Downloads](https://img.shields.io/npm/dt/happn-wrapper.svg)](https://www.npmjs.com/package/happn-wrapper) 
 
-A Happn wrapper library.
+> A Happn wrapper library.
 
 ### Features
 * Retries :shit: failing requests in temporary and unexpected system and :boom: network failures :white_check_mark:

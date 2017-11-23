@@ -47,7 +47,7 @@ const defaultOptions = {
 
 class HappnWrapper {
   constructor (options = {}) {
-    this._options = _.defaultsDeep(options, defaultOptions)
+    this._options = _.defaultsDeep({}, options, defaultOptions)
 
     this._request = Promise.promisifyAll(request.defaults(this._options.request))
 
