@@ -9,14 +9,22 @@ const BASE_URL = 'https://api.happn.fr'
 
 const _ = require('lodash')
 const Promise = require('bluebird')
-const retry = require('bluebird-retry')
-const Brakes = require('brakes')
 
 const { HappnNotAuthorizedError } = require('./errors')
 
-const request = require('request')
+const Request = require('request-on-steroids')
 
-const handleResponse = ({ body }) => {
+const responseHandler = ({ statusCode, statusMessage, body }) => {
+  if (statusCode >= 300) {
+    switch (statusCode) {
+      case 401:
+      case 410:
+        throw new HappnNotAuthorizedError()
+      default:
+        throw new Error(`${statusCode} ${statusMessage}`)
+    }
+  }
+
   let _body = body
   if (_.isString(_body)) {
     _body = JSON.parse(_body)
@@ -30,68 +38,30 @@ const handleResponse = ({ body }) => {
 }
 
 const defaultOptions = {
-  request: {
-    headers: {
-      'User-Agent': 'happn/20.15.0 android/23'
+  'request-on-steroids': {
+    request: {
+      headers: {
+        'User-Agent': 'happn/20.15.0 android/23'
+      }
+    },
+    perseverance: {
+      retry: {
+        max_tries: 2,
+        interval: 1000,
+        timeout: 16000,
+        throw_original: true,
+        predicate: (error) => !(error instanceof HappnNotAuthorizedError)
+      },
+      breaker: { timeout: 12000, threshold: 80, circuitDuration: 3 * 60 * 60 * 1000 }
     }
-  },
-  retry: {
-    max_tries: 2,
-    interval: 1000,
-    timeout: 16000,
-    throw_original: true,
-    predicate: (error) => !(error instanceof HappnNotAuthorizedError)
-  },
-  breaker: { timeout: 12000, threshold: 80, circuitDuration: 3 * 60 * 60 * 1000 }
+  }
 }
 
 class HappnWrapper {
   constructor (options = {}) {
     this._options = _.defaultsDeep({}, options, defaultOptions)
 
-    this._request = Promise.promisifyAll(request.defaults(this._options.request))
-
-    this._breaker = new Brakes(this._options.breaker)
-
-    this._getRequestCircuitBreaker = this._breaker.slaveCircuit((...params) => retry(() => this._getRequest(...params), this._options.retry))
-    this._postRequestCircuitBreaker = this._breaker.slaveCircuit((...params) => retry(() => this._postRequest(...params), this._options.retry))
-
-    this._getRequest = (...params) => {
-      return this._request.getAsync(...params)
-        .then((response) => {
-          const { statusCode, statusMessage } = response
-
-          if (statusCode >= 300) {
-            switch (statusCode) {
-              case 401:
-              case 410:
-                throw new HappnNotAuthorizedError()
-              default:
-                throw new Error(`${statusCode} ${statusMessage}`)
-            }
-          }
-
-          return response
-        })
-    }
-    this._postRequest = (...params) => {
-      return this._request.postAsync(...params)
-        .then((response) => {
-          const { statusCode, statusMessage } = response
-
-          if (statusCode >= 300) {
-            switch (statusCode) {
-              case 401:
-              case 410:
-                throw new HappnNotAuthorizedError()
-              default:
-                throw new Error(`${statusCode} ${statusMessage}`)
-            }
-          }
-
-          return response
-        })
-    }
+    this._request = new Request(_.get(this._options, 'request-on-steroids'))
   }
 
   set accessToken (accessToken) {
@@ -119,42 +89,48 @@ class HappnWrapper {
   }
 
   get circuitBreaker () {
-    return this._breaker
+    return this._request.circuitBreaker
   }
 
   authorize (facebookAccessToken) {
-    if (!facebookAccessToken) {
-      return Promise.reject(new Error('invalid arguments'))
-    }
-
-    const options = {
-      url: `${BASE_URL}/connect/oauth/token`,
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      form: {
-        client_id: 'FUE-idSEP-f7AqCyuMcPr2K-1iCIU_YlvK-M-im3c',
-        client_secret: 'brGoHSwZsPjJ-lBk0HqEXVtb3UFu-y5l_JcOjD-Ekv',
-        grant_type: 'assertion',
-        assertion_type: 'facebook_access_token',
-        assertion: facebookAccessToken,
-        scope: 'mobile_app'
+    return Promise.try(() => {
+      if (!facebookAccessToken) {
+        throw new Error('invalid arguments')
       }
-    }
+    })
+      .then(() => {
+        const options = {
+          url: `${BASE_URL}/connect/oauth/token`,
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          form: {
+            client_id: 'FUE-idSEP-f7AqCyuMcPr2K-1iCIU_YlvK-M-im3c',
+            client_secret: 'brGoHSwZsPjJ-lBk0HqEXVtb3UFu-y5l_JcOjD-Ekv',
+            grant_type: 'assertion',
+            assertion_type: 'facebook_access_token',
+            assertion: facebookAccessToken,
+            scope: 'mobile_app'
+          }
+        }
 
-    return this._postRequestCircuitBreaker.exec(options)
-      .then((response) => handleResponse(response))
-      .then((data) => {
-        this._accessToken = data.access_token
-        this._refreshToken = data.refresh_token
-        this._userId = data.user_id
+        return this._request.post(options, responseHandler)
+          .then((data) => {
+            this._accessToken = data.access_token
+            this._refreshToken = data.refresh_token
+            this._userId = data.user_id
 
-        return data
+            return data
+          })
       })
   }
 
   getRecommendations (limit = 16, offset = 0) {
     return Promise.try(() => {
+      if (!_.isNumber(limit) || !_.isNumber(offset)) {
+        throw new Error('invalid arguments')
+      }
+
       if (!this._accessToken) {
         throw new HappnNotAuthorizedError()
       }
@@ -173,8 +149,7 @@ class HappnWrapper {
           json: true
         }
 
-        return this._getRequestCircuitBreaker.exec(options)
-          .then((response) => handleResponse(response))
+        return this._request.get(options, responseHandler)
       })
   }
 
@@ -209,8 +184,7 @@ class HappnWrapper {
           json: true
         }
 
-        return this._getRequestCircuitBreaker.exec(options)
-          .then((response) => handleResponse(response))
+        return this._request.get(options, responseHandler)
       })
   }
 
@@ -237,8 +211,7 @@ class HappnWrapper {
             json: true
           }
 
-          return this._getRequestCircuitBreaker.exec(options)
-            .then((response) => handleResponse(response))
+          return this._request.get(options, responseHandler)
         }
         const getConversations = (limit = 10, offset = 0) => {
           const options = {
@@ -254,8 +227,7 @@ class HappnWrapper {
             json: true
           }
 
-          return this._getRequestCircuitBreaker.exec(options)
-            .then((response) => handleResponse(response))
+          return this._request.get(options, responseHandler)
         }
 
         const _getConversations = (limit = 10, offset = 0, conversations = []) => {
@@ -317,8 +289,7 @@ class HappnWrapper {
           json: true
         }
 
-        return this._postRequestCircuitBreaker.exec(options)
-          .then((response) => handleResponse(response))
+        return this._request.post(options, responseHandler)
       })
   }
 
@@ -342,8 +313,7 @@ class HappnWrapper {
           json: true
         }
 
-        return this._postRequestCircuitBreaker.exec(options)
-          .then((response) => handleResponse(response))
+        return this._request.post(options, responseHandler)
       })
   }
 
@@ -367,8 +337,7 @@ class HappnWrapper {
           json: true
         }
 
-        return this._postRequestCircuitBreaker.exec(options)
-          .then((response) => handleResponse(response))
+        return this._request.post(options, responseHandler)
       })
   }
 }

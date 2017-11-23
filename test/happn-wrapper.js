@@ -11,18 +11,17 @@ const { HappnNotAuthorizedError } = require('../src/errors')
 
 describe('Happn Wrapper', () => {
   let subject
-  let request
+  let Request
 
   before(() => {
-    request = td.object([ 'defaults', 'get', 'post' ])
+    Request = td.constructor([ 'get', 'post' ])
   })
 
   afterEach(() => td.reset())
 
   describe('when constructing', () => {
     beforeEach(() => {
-      td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
-      td.replace('request', request)
+      td.replace('request-on-steroids', Request)
 
       const HappnWrapper = require('../src/happn-wrapper')
       subject = new HappnWrapper()
@@ -31,22 +30,17 @@ describe('Happn Wrapper', () => {
     it('should set default request headers', () => {
       const captor = td.matchers.captor()
 
-      td.verify(request.defaults(captor.capture()))
+      td.verify(new Request(captor.capture()))
 
       const options = captor.value
-      options.should.have.nested.property('headers.User-Agent', 'happn/20.15.0 android/23')
+      options.should.have.nested.property('request.headers.User-Agent', 'happn/20.15.0 android/23')
     })
   })
 
-  describe('when constructing and loading request', () => {
+  describe('when constructing and loading request-on-steroids', () => {
     beforeEach(() => {
       const HappnWrapper = require('../src/happn-wrapper')
       subject = new HappnWrapper()
-    })
-
-    it('should create a request with defaults function', () => {
-      subject._request.should.have.property('defaults')
-      subject._request.defaults.should.be.instanceOf(Function)
     })
 
     it('should create a request with get function', () => {
@@ -71,9 +65,8 @@ describe('Happn Wrapper', () => {
     const response = { statusCode, body }
 
     beforeEach(() => {
-      td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
-      td.when(request.post(td.matchers.anything()), { ignoreExtraArgs: true }).thenCallback(null, response)
-      td.replace('request', request)
+      td.when(Request.prototype.post(td.matchers.anything(), td.callback(response))).thenResolve(body)
+      td.replace('request-on-steroids', Request)
 
       const HappnWrapper = require('../src/happn-wrapper')
       subject = new HappnWrapper()
@@ -84,7 +77,7 @@ describe('Happn Wrapper', () => {
     it('should do a post request to https://api.happn.fr/connect/oauth/token', () => {
       const captor = td.matchers.captor()
 
-      td.verify(request.post(captor.capture()), { ignoreExtraArgs: true, times: 1 })
+      td.verify(Request.prototype.post(captor.capture()), { ignoreExtraArgs: true, times: 1 })
 
       const options = captor.value
       options.should.have.property('url', 'https://api.happn.fr/connect/oauth/token')
@@ -93,7 +86,7 @@ describe('Happn Wrapper', () => {
     it('should do a post request with form', () => {
       const captor = td.matchers.captor()
 
-      td.verify(request.post(captor.capture()), { ignoreExtraArgs: true, times: 1 })
+      td.verify(Request.prototype.post(captor.capture()), { ignoreExtraArgs: true, times: 1 })
 
       const options = captor.value
       options.should.have.nested.property('form.client_id', 'FUE-idSEP-f7AqCyuMcPr2K-1iCIU_YlvK-M-im3c')
@@ -142,9 +135,8 @@ describe('Happn Wrapper', () => {
     const accessToken = 'my-access-token'
 
     beforeEach(() => {
-      td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
-      td.when(request.get(td.matchers.anything()), { ignoreExtraArgs: true }).thenCallback(null, response)
-      td.replace('request', request)
+      td.when(Request.prototype.get(td.matchers.anything(), td.callback(response))).thenResolve(body)
+      td.replace('request-on-steroids', Request)
 
       const HappnWrapper = require('../src/happn-wrapper')
       subject = new HappnWrapper()
@@ -157,7 +149,7 @@ describe('Happn Wrapper', () => {
         .then(() => {
           const captor = td.matchers.captor()
 
-          td.verify(request.get(captor.capture()), { ignoreExtraArgs: true, times: 1 })
+          td.verify(Request.prototype.get(captor.capture()), { ignoreExtraArgs: true, times: 1 })
 
           const options = captor.value
           options.should.have.property('url', 'https://api.happn.fr/api/users/my-user-id/crossings')
@@ -169,7 +161,7 @@ describe('Happn Wrapper', () => {
         .then(() => {
           const captor = td.matchers.captor()
 
-          td.verify(request.get(captor.capture()), { ignoreExtraArgs: true, times: 1 })
+          td.verify(Request.prototype.get(captor.capture()), { ignoreExtraArgs: true, times: 1 })
 
           const options = captor.value
           options.should.have.nested.property('qs.limit')
@@ -192,9 +184,8 @@ describe('Happn Wrapper', () => {
     const response = { statusCode, body }
 
     beforeEach(() => {
-      td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
-      td.when(request.get(td.matchers.anything()), { ignoreExtraArgs: true }).thenCallback(null, response)
-      td.replace('request', request)
+      td.when(Request.prototype.get(td.matchers.anything(), td.callback(response))).thenResolve(body)
+      td.replace('request-on-steroids', Request)
 
       const HappnWrapper = require('../src/happn-wrapper')
       subject = new HappnWrapper()
@@ -216,9 +207,8 @@ describe('Happn Wrapper', () => {
     const accessToken = 'my-access-token'
 
     beforeEach(() => {
-      td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
-      td.when(request.get(td.matchers.anything()), { ignoreExtraArgs: true }).thenCallback(null, response)
-      td.replace('request', request)
+      td.when(Request.prototype.get(td.matchers.anything(), td.callback(response))).thenResolve(body)
+      td.replace('request-on-steroids', Request)
 
       const HappnWrapper = require('../src/happn-wrapper')
       subject = new HappnWrapper()
@@ -231,7 +221,7 @@ describe('Happn Wrapper', () => {
         .then(() => {
           const captor = td.matchers.captor()
 
-          td.verify(request.get(captor.capture()), { ignoreExtraArgs: true, times: 1 })
+          td.verify(Request.prototype.get(captor.capture()), { ignoreExtraArgs: true, times: 1 })
 
           const options = captor.value
           options.should.have.property('url', 'https://api.happn.fr/api/users/my-user-id')
@@ -270,9 +260,8 @@ describe('Happn Wrapper', () => {
     const accessToken = 'my-access-token'
 
     beforeEach(() => {
-      td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
-      td.when(request.get(td.matchers.anything()), { ignoreExtraArgs: true }).thenCallback(null, response)
-      td.replace('request', request)
+      td.when(Request.prototype.get(td.matchers.anything(), td.callback(response))).thenResolve(body)
+      td.replace('request-on-steroids', Request)
 
       const HappnWrapper = require('../src/happn-wrapper')
       subject = new HappnWrapper()
@@ -284,7 +273,7 @@ describe('Happn Wrapper', () => {
         .then(() => {
           const captor = td.matchers.captor()
 
-          td.verify(request.get(captor.capture()), { ignoreExtraArgs: true, times: 1 })
+          td.verify(Request.prototype.get(captor.capture()), { ignoreExtraArgs: true, times: 1 })
 
           const options = captor.value
           options.should.have.property('url', 'https://api.happn.fr/api/users/my-user-id')
@@ -346,10 +335,9 @@ describe('Happn Wrapper', () => {
     const accessToken = 'my-access-token'
 
     beforeEach(() => {
-      td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
-      td.when(request.get(td.matchers.contains({ url: 'https://api.happn.fr/api/users/my-user-id/conversations' })), { ignoreExtraArgs: true }).thenCallback(null, conversationsResponse)
-      td.when(request.get(td.matchers.contains({ url: 'https://api.happn.fr/api/conversations/my-conversation-id/messages' })), { ignoreExtraArgs: true }).thenCallback(null, messagesResponse)
-      td.replace('request', request)
+      td.when(Request.prototype.get(td.matchers.contains({ url: 'https://api.happn.fr/api/users/my-user-id/conversations' }), td.callback(conversationsResponse))).thenResolve(body)
+      td.when(Request.prototype.get(td.matchers.contains({ url: 'https://api.happn.fr/api/conversations/my-conversation-id/messages' }), td.callback(messagesResponse))).thenResolve({})
+      td.replace('request-on-steroids', Request)
 
       const HappnWrapper = require('../src/happn-wrapper')
       subject = new HappnWrapper()
@@ -360,7 +348,7 @@ describe('Happn Wrapper', () => {
     it('should do a get request to https://api.happn.fr/api/users/my-user-id/conversations', () => {
       return subject.getUpdates()
         .then(() => {
-          td.verify(request.get(td.matchers.contains({
+          td.verify(Request.prototype.get(td.matchers.contains({
             url: 'https://api.happn.fr/api/users/my-user-id/conversations',
             qs: {
               limit: 10,
@@ -382,10 +370,9 @@ describe('Happn Wrapper', () => {
     const accessToken = 'my-access-token'
 
     beforeEach(() => {
-      td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
-      td.when(request.get(td.matchers.contains({ url: 'https://api.happn.fr/api/users/my-user-id/conversations' })), { ignoreExtraArgs: true }).thenCallback(null, conversationsResponse)
-      td.when(request.get(td.matchers.contains({ url: 'https://api.happn.fr/api/conversations/my-conversation-id/messages' })), { ignoreExtraArgs: true }).thenCallback(null, messagesResponse)
-      td.replace('request', request)
+      td.when(Request.prototype.get(td.matchers.contains({ url: 'https://api.happn.fr/api/users/my-user-id/conversations' }), td.callback(conversationsResponse))).thenResolve(body)
+      td.when(Request.prototype.get(td.matchers.contains({ url: 'https://api.happn.fr/api/conversations/my-conversation-id/messages' }), td.callback(messagesResponse))).thenResolve({})
+      td.replace('request-on-steroids', Request)
 
       const HappnWrapper = require('../src/happn-wrapper')
       subject = new HappnWrapper()
@@ -396,7 +383,7 @@ describe('Happn Wrapper', () => {
     it('should do a get request to https://api.happn.fr/api/users/my-user-id/conversations', () => {
       return subject.getUpdates(new Date())
         .then(() => {
-          td.verify(request.get(td.matchers.contains({
+          td.verify(Request.prototype.get(td.matchers.contains({
             url: 'https://api.happn.fr/api/users/my-user-id/conversations',
             qs: {
               limit: 10,
@@ -410,7 +397,7 @@ describe('Happn Wrapper', () => {
     it('should not do a get request to https://api.happn.fr/api/conversations/my-conversation-id/messages', () => {
       return subject.getUpdates(new Date())
         .then(() => {
-          td.verify(request.get(td.matchers.contains({ url: 'https://api.happn.fr/api/conversations/my-conversation-id/messages' })), {
+          td.verify(Request.prototype.get(td.matchers.contains({ url: 'https://api.happn.fr/api/conversations/my-conversation-id/messages' })), {
             ignoreExtraArgs: true,
             times: 0
           })
@@ -444,9 +431,8 @@ describe('Happn Wrapper', () => {
     const accessToken = 'my-access-token'
 
     beforeEach(() => {
-      td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
-      td.when(request.post(td.matchers.anything()), { ignoreExtraArgs: true }).thenCallback(null, response)
-      td.replace('request', request)
+      td.when(Request.prototype.post(td.matchers.anything(), td.callback(response))).thenResolve(body)
+      td.replace('request-on-steroids', Request)
 
       const HappnWrapper = require('../src/happn-wrapper')
       subject = new HappnWrapper()
@@ -459,7 +445,7 @@ describe('Happn Wrapper', () => {
         .then(() => {
           const captor = td.matchers.captor()
 
-          td.verify(request.post(captor.capture()), { ignoreExtraArgs: true, times: 1 })
+          td.verify(Request.prototype.post(captor.capture()), { ignoreExtraArgs: true, times: 1 })
 
           const options = captor.value
           options.should.have.property('url', `https://api.happn.fr/api/users/my-user-id/conversations/${conversationId}/messages`)
@@ -471,7 +457,7 @@ describe('Happn Wrapper', () => {
         .then(() => {
           const captor = td.matchers.captor()
 
-          td.verify(request.post(captor.capture()), { ignoreExtraArgs: true, times: 1 })
+          td.verify(Request.prototype.post(captor.capture()), { ignoreExtraArgs: true, times: 1 })
 
           const options = captor.value
           options.should.have.nested.nested.property('body.fields', 'message,creation_date,sender.fields(id)')
@@ -508,9 +494,8 @@ describe('Happn Wrapper', () => {
     const accessToken = 'my-access-token'
 
     beforeEach(() => {
-      td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
-      td.when(request.post(td.matchers.anything()), { ignoreExtraArgs: true }).thenCallback(null, response)
-      td.replace('request', request)
+      td.when(Request.prototype.post(td.matchers.anything(), td.callback(response))).thenResolve(body)
+      td.replace('request-on-steroids', Request)
 
       const HappnWrapper = require('../src/happn-wrapper')
       subject = new HappnWrapper()
@@ -523,7 +508,7 @@ describe('Happn Wrapper', () => {
         .then(() => {
           const captor = td.matchers.captor()
 
-          td.verify(request.post(captor.capture()), { ignoreExtraArgs: true, times: 1 })
+          td.verify(Request.prototype.post(captor.capture()), { ignoreExtraArgs: true, times: 1 })
 
           const options = captor.value
           options.should.have.property('url', 'https://api.happn.fr/api/users/my-user-id/accepted/my-user-id-to-like')
@@ -542,8 +527,7 @@ describe('Happn Wrapper', () => {
     const userId = undefined
 
     beforeEach(() => {
-      td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
-      td.replace('request', request)
+      td.replace('request-on-steroids', Request)
 
       const HappnWrapper = require('../src/happn-wrapper')
       subject = new HappnWrapper()
@@ -588,9 +572,8 @@ describe('Happn Wrapper', () => {
     const accessToken = 'my-access-token'
 
     beforeEach(() => {
-      td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
-      td.when(request.post(td.matchers.anything()), { ignoreExtraArgs: true }).thenCallback(null, response)
-      td.replace('request', request)
+      td.when(Request.prototype.post(td.matchers.anything(), td.callback(response))).thenResolve(body)
+      td.replace('request-on-steroids', Request)
 
       const HappnWrapper = require('../src/happn-wrapper')
       subject = new HappnWrapper()
@@ -603,7 +586,7 @@ describe('Happn Wrapper', () => {
         .then(() => {
           const captor = td.matchers.captor()
 
-          td.verify(request.post(captor.capture()), { ignoreExtraArgs: true, times: 1 })
+          td.verify(Request.prototype.post(captor.capture()), { ignoreExtraArgs: true, times: 1 })
 
           const options = captor.value
           options.should.have.property('url', 'https://api.happn.fr/api/users/my-user-id/rejected/my-user-id-to-pass')
@@ -622,8 +605,7 @@ describe('Happn Wrapper', () => {
     const userId = undefined
 
     beforeEach(() => {
-      td.when(request.defaults(), { ignoreExtraArgs: true }).thenReturn(request)
-      td.replace('request', request)
+      td.replace('request-on-steroids', Request)
 
       const HappnWrapper = require('../src/happn-wrapper')
       subject = new HappnWrapper()
