@@ -20,7 +20,7 @@
     "bluebird": "3.5.1",
     "bluebird-retry": "0.11.0",
     "brakes": "2.6.0",
-    "lodash": "4.17.4",
+    "lodash": "4.17.5",
     "request-on-steroids": "1.1.18"
   },
   "devDependencies": {
