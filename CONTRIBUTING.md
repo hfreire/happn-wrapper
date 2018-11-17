@@ -11,7 +11,7 @@ git clone https://github.com/my-github-username/happn-wrapper
 
 Change current directory
 ```
-cd get-me-date
+cd happn-wrapper
 ```
 
 Install NPM dependencies
