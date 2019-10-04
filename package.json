@@ -21,7 +21,8 @@
     "bluebird-retry": "0.11.0",
     "brakes": "2.8.0",
     "lodash": "4.17.15",
-    "request-on-steroids": "1.1.30"
+    "request-on-steroids": "1.1.30",
+    "snyk": "^1.230.5"
   },
   "devDependencies": {
     "babel-cli": "6.26.0",
@@ -57,9 +58,11 @@
     "coverage": "node_modules/.bin/istanbul cover --include-all-sources --root src --print detail ./node_modules/mocha/bin/_mocha -- --recursive test",
     "test": "npm run lint && npm run coverage",
     "compile": "npm run clean && mkdir -p lib && ./node_modules/.bin/babel src/ -d lib",
-    "prepublish": "npm run compile",
+    "prepublish": "npm run snyk-protect && npm run compile",
     "coveralls": "cat ./coverage/lcov.info | ./node_modules/.bin/coveralls",
     "semantic-release": "./node_modules/.bin/semantic-release",
-    "commit": "./node_modules/.bin/commit-wizard"
-  }
+    "commit": "./node_modules/.bin/commit-wizard",
+    "snyk-protect": "snyk protect"
+  },
+  "snyk": true
 }
