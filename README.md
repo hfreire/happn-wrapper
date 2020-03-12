@@ -2,6 +2,7 @@
 
 [![](https://github.com/hfreire/happn-wrapper/workflows/ci/badge.svg)](https://github.com/hfreire/happn-wrapper/actions?workflow=ci)
 [![Coverage Status](https://coveralls.io/repos/github/hfreire/happn-wrapper/badge.svg?branch=master)](https://coveralls.io/github/hfreire/happn-wrapper?branch=master)
+[![Known Vulnerabilities](https://snyk.io/test/github/hfreire/happn-wrapper/badge.svg)](https://snyk.io/test/github/hfreire/happn-wrapper)
 [![](https://img.shields.io/github/release/hfreire/happn-wrapper.svg)](https://github.com/hfreire/happn-wrapper/releases)
 [![Version](https://img.shields.io/npm/v/happn-wrapper.svg)](https://www.npmjs.com/package/happn-wrapper)
 [![Downloads](https://img.shields.io/npm/dt/happn-wrapper.svg)](https://www.npmjs.com/package/happn-wrapper)
